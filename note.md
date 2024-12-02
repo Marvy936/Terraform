@@ -211,7 +211,7 @@ export http_proxy=http://10.14.38.3:3128
    mount /dev/vdb /mnt/data
    echo /dev/vdb /mnt/data ext4 defaults,nofail 0 2 >> /etc/fstab
    ```
-      After mount you have to resize disk.
+After resizing volume, you have to resize mounted disk.
    ```bash
    resize2fs /dev/vdb
    ```
