@@ -1,5 +1,5 @@
 
-# Terraform Training Notes
+# Terraform Training Notes - Provider is openstack
 
 ## Table of Contents
 1. [Introduction to Terraform Commands](#introduction-to-terraform-commands)
