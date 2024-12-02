@@ -92,7 +92,7 @@ export http_proxy=http://10.14.38.3:3128
    ```hcl
    resource "openstack_compute_keypair_v2" "vyhonsky-keypair" {
        name       = "vyhonsky-keypair"
-       public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHBC81O6rZHjpDa8HpOb+IGzNDoW6KcnrvsloCs2Iudk martin.vyhonsky@telekom.com"
+       public_key = "{public_key}"
    }
    ```
 
