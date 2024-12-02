@@ -1,6 +1,20 @@
 
 # Terraform Training Notes
 
+## Table of Contents
+1. [Introduction to Terraform Commands](#introduction-to-terraform-commands)
+    - [Initialize Terraform](#initialize-terraform)
+    - [Plan Terraform Execution](#plan-terraform-execution)
+    - [Apply Terraform Plan](#apply-terraform-plan)
+    - [Destroy Terraform Managed Infrastructure](#destroy-terraform-managed-infrastructure)
+2. [Useful Links](#useful-links)
+3. [Setting Up a Tenant](#setting-up-a-tenant)
+4. [Exporting Proxy Variables](#exporting-proxy-variables)
+5. [Creating a Keypair](#creating-a-keypair)
+6. [Creating Security Groups](#creating-security-groups)
+7. [Adding Security Group Rules](#adding-security-group-rules)
+8. [Creating and Managing an Instance](#creating-and-managing-an-instance)
+
 ## Introduction to Terraform Commands
 
 1. **Initialize Terraform**
@@ -36,7 +50,7 @@
 
 1. Create a new directory:
    ```bash
-   mkdir 00-tenant-base
+   mkdir 00-tenant-
    ```
 2. Create a `provider.tf` file with the following configuration:
 
@@ -196,5 +210,9 @@ export http_proxy=http://10.14.38.3:3128
    mkdir -p /mnt/data
    mount /dev/vdb /mnt/data
    echo /dev/vdb /mnt/data ext4 defaults,nofail 0 2 >> /etc/fstab
+   ```
+      After mount you have to resize disk.
+   ```bash
    resize2fs /dev/vdb
    ```
+   
