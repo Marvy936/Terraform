@@ -360,7 +360,7 @@ terraform output {output_var_name}
 
 Local values assign names to expressions for reuse within a module.
 
-#### Declaring Local Values
+#### Declaring Local Values `locals.tf`
 
 ```hcl
 locals {
