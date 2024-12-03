@@ -59,7 +59,7 @@
 
 1. Create a new directory:
    ```bash
-   mkdir 00-tenant-
+   mkdir 00-tenant-base
    ```
 2. Create a `provider.tf` file with the following configuration:
 
