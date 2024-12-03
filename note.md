@@ -406,6 +406,8 @@ locals {
 
 ## Backend
 
+`https://developer.hashicorp.com/terraform/language/backend`
+
 For generating uniqe ID use:
 ```bash
 uuidgen
