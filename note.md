@@ -24,6 +24,15 @@
         - [Ephemeral Local Values](#ephemeral-local-values)
         - [Best Practices](#best-practices-for-variables-and-local-values)
 10. [Backend](#backend)
+11. [Null Resource](#null-resource)
+     - [Triggers Example](#triggers-example)
+12. [Provisioners](#provisioners)
+     - [Remote Exec Provisioner](#remote-exec-provisioner)
+     - [Local Exec Provisioner](#local-exec-provisioner)
+13. [Useful Terraform Functions](#useful-terraform-functions)
+     - [Element Function](#element-function)
+     - [Length Function](#length-function)
+14. [Meta-Argument: Count](#meta-argument-count)
 
 ## Introduction to Terraform Commands
 
@@ -442,3 +451,199 @@ export AWS_SECRET_ACCESS_KEY="your_secret_access_key"
 export AWS_ACCESS_KEY_ID="your_access_key_id"
 ```
 Now just run `terraform init` command.
+
+## Null Resource
+
+The `null_resource` is a Terraform resource that does not manage any actual infrastructure. It is often used for tasks like triggering provisioners or managing dependencies.
+
+### Triggers Example
+
+```hcl
+resource "null_resource" "provision" {
+  triggers = {
+    build_number = timestamp()
+  }
+}
+```
+
+- **`triggers`**: Defines conditions that trigger the execution of provisioners.
+  - **`build_number`**: A custom key to store a value that determines when the resource runs.
+  - **`timestamp()`**: A built-in Terraform function that returns the current time in UTC.
+
+---
+
+## Provisioners
+
+Provisioners allow you to execute scripts or commands on a local or remote machine during Terraform execution. There are two main types: `remote-exec` and `local-exec`.
+
+### Remote Exec Provisioner
+
+The `remote-exec` provisioner executes scripts on a remote instance.
+
+#### Example
+
+```hcl
+resource "null_resource" "provision" {
+  triggers = {
+    build_number = timestamp()
+  }
+
+  connection {
+    user        = "ubuntu"
+    private_key = file("/home/mvyhonsk/.ssh/mvyhonsk")
+    host        = openstack_compute_instance_v2.vyhonsky-vm.network[0].fixed_ip_v4
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo Hello World!",
+      "date",
+      "ls -la",
+    ]
+  }
+}
+```
+
+#### Explanation of Connection Block
+
+1. **`user`**: Specifies the username for SSH access.
+   - Example: `user = "ubuntu"`
+   - Use the default username for the instance's operating system.
+
+2. **`private_key`**: Specifies the private SSH key for authentication.
+   - Example: `private_key = file("/home/mvyhonsk/.ssh/mvyhonsk")`
+   - Provide the path to your private key.
+
+3. **`host`**: The IP address or hostname of the remote instance.
+   - Example: `host = openstack_compute_instance_v2.vyhonsky-vm.network[0].fixed_ip_v4`
+   - Use the public or private IP of the instance.
+
+4. **`inline`**: A list of commands to run on the remote server.
+   - Example:
+     - `"echo Hello World!"`: Prints "Hello World!".
+     - `"date"`: Displays the current date and time.
+     - `"ls -la"`: Lists files and directories in long format.
+
+---
+
+### Local Exec Provisioner
+
+The `local-exec` provisioner runs commands on the local machine executing Terraform.
+
+#### Example
+
+```hcl
+resource "null_resource" "provision" {
+  triggers = {
+    build_number = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = <<EOT
+      until ssh -o StrictHostKeyChecking=no -i ~/.ssh/mvyhonsk ubuntu@${local.ip_address}; do sleep 2; done &&
+      echo -e "[server]\n${openstack_compute_instance_v2.vyhonsky-vm.network[0].fixed_ip_v4} ansible_ssh_private_key_file=~/.ssh/mvyhonsk ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_ssh_user=ubuntu" > inventory-test &&
+      ansible-playbook -i inventory-test install-httpd-ubuntu.yml
+    EOT
+  }
+}
+```
+
+#### Explanation of the Command
+
+1. **SSH Connection Loop**
+   ```bash
+   until ssh -o StrictHostKeyChecking=no -i ~/.ssh/mvyhonsk ubuntu@${local.ip_address}; do sleep 2; done
+   ```
+   - Attempts SSH connection every 2 seconds until successful.
+
+2. **Create Ansible Inventory**
+   ```bash
+   echo -e "[server]\n${openstack_compute_instance_v2.vyhonsky-vm.network[0].fixed_ip_v4} ansible_ssh_private_key_file=~/.ssh/mvyhonsk ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_ssh_user=ubuntu" > inventory-test
+   ```
+   - Dynamically generates an inventory file for Ansible.
+
+3. **Run Ansible Playbook**
+   ```bash
+   ansible-playbook -i inventory-test install-httpd-ubuntu.yml
+   ```
+   - Executes the Ansible playbook to configure the remote server.
+
+---
+
+## Useful Terraform Functions
+
+Terraform functions allow data manipulation and processing.
+
+### Element Function
+
+The `element` function retrieves an item from a list by index.
+
+#### Example
+
+```hcl
+locals {
+  ports = [80, 443, 8080]
+}
+
+resource "openstack_networking_secgroup_rule_v2" "default_ports" {
+  count             = length(local.ports)
+  port_range_min    = element(local.ports, count.index)
+  port_range_max    = element(local.ports, count.index)
+}
+```
+
+### Length Function
+
+The `length` function returns the number of items in a list or map.
+
+#### Example
+
+```hcl
+locals {
+  ports = [80, 443, 8080]
+}
+
+resource "null_resource" "example" {
+  count = length(local.ports)
+}
+```
+
+---
+
+## Meta-Argument: Count
+
+The `count` meta-argument allows creating multiple instances of a resource.
+
+### Example
+
+```hcl
+locals {
+  default_to_apache = [80, 443, 8080]
+}
+
+resource "openstack_networking_secgroup_rule_v2" "default_to_apache" {
+  count             = length(local.default_to_apache)
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = element(local.default_to_apache, count.index)
+  port_range_max    = element(local.default_to_apache, count.index)
+  remote_ip_prefix  = "10.0.0.0/8"
+  security_group_id = openstack_networking_secgroup_v2.sg-vyhonsky.id
+}
+```
+
+#### Explanation
+
+1. **`count`**: Creates one resource per port in `local.default_to_apache`.
+2. **`element`**: Dynamically assigns each port to the resource.
+
+---
+
+# References
+
+- [Null Resource Documentation](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource)
+- [Remote Exec Provisioner](https://developer.hashicorp.com/terraform/language/resources/provisioners/remote-exec)
+- [Local Exec Provisioner](https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec)
+- [Terraform Functions](https://developer.hashicorp.com/terraform/language/functions)
+- [Meta-Argument Count](https://developer.hashicorp.com/terraform/language/meta-arguments/count)
