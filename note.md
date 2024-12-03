@@ -229,6 +229,8 @@ After resizing volume, you have to resize mounted disk.
    
 ## Variables in Terraform
 
+`https://upcloud.com/docs/guides/terraform-variables/`
+
 Variables in Terraform enable dynamic and reusable configurations. They are declared in `variables.tf` files or directly within your Terraform manifests.
 
 ### Input Variables
@@ -376,6 +378,8 @@ locals {
 ```
 
 #### Using Local Values
+
+`https://developer.hashicorp.com/terraform/language/values/locals`
 
 Local values can be referenced as `local.<name>`:
 ```hcl
