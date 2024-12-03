@@ -220,8 +220,14 @@ export http_proxy=http://00.00.00.0:0000
        }
    }
    ```
+   
+```
+    The `user_data` field in the openstack_compute_instance_v2 resource refers to a mechanism used to initialize a virtual machine (VM) during its first boot. 
+    It allows you to specify a script or set of commands that will be executed as part of the VM's startup process.
+```
+   
 
-3. Create a volume and attach it to the instance:
+4. Create a volume and attach it to the instance:
    ```hcl
    resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
        name               = "data0-vyhonsky"
@@ -236,7 +242,7 @@ export http_proxy=http://00.00.00.0:0000
    }
    ```
 
-4. Include a shell script `mount_VM.sh` for configuring the volume:
+5. Include a shell script `mount_VM.sh` for configuring the volume:
    ```bash
    #!/bin/bash
 
