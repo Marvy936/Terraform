@@ -1,197 +1,209 @@
-tereraform init
+variables
 
-terraform plan
+terraform.tfvars.json
 
-terraform apply
+"image_name": "VAULE"
 
-terraform destroy
+output variables
 
-https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/latest/docs
+output "public_ip" {
+  value = upcloud_server.server_name.network_interface[0].ip_address
+}
 
-https://releases.hashicorp.com/
+terraform output {output_var_name}
 
-mkdir 00-tenant-
+input variables - my vkladame hodnotuT
 
------------------
-create provider.tf
---------------------
-terraform {
-required_version = ">= 0.14.0"
-  required_providers {
-    openstack = {
-      source  = "terraform-provider-openstack/openstack"
-      version = "~> 1.48.0"
-    }
+
+musim mat v bloku variable zadefinovnae premenne bud v jednotlivych manuifestovch alebo v samostatnom variables.tf
+
+variable "private_key_path" {
+  type = string
+  default = "/home/user/.ssh/terraform_rsa"
+}
+
+variable "public_key" {
+  type = string
+  default = "ssh-rsa terraform_public_key"
+}
+
+variable "zones" {
+  type = map
+  default = {
+    "amsterdam" = "nl-ams1"
+    "london"    = "uk-lon1"
+    "frankfurt" = "de-fra1"
+    "helsinki1" = "fi-hel1"
+    "helsinki2" = "fi-hel2"
+    "chicago"   = "us-chi1"
+    "sanjose"   = "us-sjo1"
+    "singapore" = "sg-sin1"
   }
 }
 
-provider "openstack" {
-  user_name        = "devops-terraform"
-  password         = "2eir6shohHpeing3Mee]do"
-  user_domain_name = "OTC-EU-DE-00000000001000035578"
-  tenant_id        = "54026885c74446c2b833f4dc7cb77bd2"
-  auth_url         = "https://iam.eu-de.otc.t-systems.com:443/v3"
-  region           = "eu-de"
-  #version = "< 1.21.0"
-}
-
-terraform init
-
-
-export https_proxy=http://10.14.38.3:3128
-export http_proxy=http://10.14.38.3:3128
-
-
----------------------
-keypair.tf
---------------------
-resource "openstack_compute_keypair_v2" "vyhonsky-keypair" {
-  name       = "vyhonsky-keypair"
-  public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHBC81O6rZHjpDa8HpOb+IGzNDoW6KcnrvsloCs2Iudk martin.vyhonsky@telekom.com"
-}
-
-
-terraform plan
--out={saved_file_name} -> save plan to file
-
-Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
-  + create
-
-Terraform will perform the following actions:
-
-  # openstack_compute_keypair_v2.vyhonsky-keypair will be created
-  + resource "openstack_compute_keypair_v2" "vyhonsky-keypair" {
-      + fingerprint = (known after apply)
-      + id          = (known after apply)
-      + name        = "vyhonsky-keypair"
-      + private_key = (known after apply)
-      + public_key  = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHBC81O6rZHjpDa8HpOb+IGzNDoW6KcnrvsloCs2Iudk martin.vyhonsky@telekom.com"
-      + region      = (known after apply)
-      + user_id     = (known after apply)
-    }
-
-Plan: 1 to add, 0 to change, 0 to destroy.
-
-When used option -out
-
-Saved the plan to: plan.tf
-
-To perform exactly these actions, run the following command to apply:
-    terraform apply "plan.tf"
-
-
-  terraform apply "plan.tf"
-
-
-terraform state list -> shows resources from state file
-
-now we are going to create security group 
-
-security-group.tf
-
-resource "openstack_networking_secgroup_v2" "sg-vyhonsky" {
-  name                 = "sg-vyhonsky"
-  description          = "ALL"
-  delete_default_rules = true
-}
-
-terraform plan out=scplan
-
-terraform apply "scplan"
-
-now we are going to create rules for security group 
-
-sg-rule.tf
-
-resource "openstack_networking_secgroup_rule_v2" "allow_ssh_vyhonsky" {
-  direction         = "ingress"
-  ethertype         = "IPv4"
-  protocol          = "tcp"
-  port_range_min    = 22
-  port_range_max    = 22
-  remote_ip_prefix  = "10.0.0.0/8"
-  security_group_id = openstack_networking_secgroup_v2.sg-vyhonsky.id
-}
-
-resource "openstack_networking_secgroup_rule_v2" "outbound_ssh_vyhonsky" {
-  direction         = "egress"
-  ethertype         = "IPv4"
-  protocol          = "tcp"
-  remote_ip_prefix  = "10.0.0.0/8"
-  security_group_id = openstack_networking_secgroup_v2.sg-vyhonsky.id
-}
-
-terraform show
-
-
-
-mkdir 01-single-instance
-cd 01-single-instance
-
-pomocoou data viem nacitavat uz vytvorene resource ako keypair ktory sme si vytvoirili, securtiy group nakolko to nie je v jednom priecinku musime pouzit data.                          
-
-instance.tf
-
-
-data "openstack_networking_secgroup_v2" "sg-AgileAcademyTelIT-default" {
-  name = "sg-AgileAcademyTelIT-default"
-}
-
-data "openstack_networking_secgroup_v2" "sg-vyhonsky" {
-  name = "sg-vyhonsky"
-}
-
-data "openstack_compute_keypair_v2" "vyhonsky-keypair" {
-  name = "vyhonsky-keypair"
-}
-
-resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
-  name                 = "data0-vyhonsky"
-  size                 = 10
-  enable_online_resize = true
-  volume_type          = "SSD"
-}
-
-resource "openstack_networking_port_v2" "primary_port" {
-  network_id = "9e322103-7a52-4e15-b667-2ea8e2ca41ce"
-  security_group_ids = [
-    data.openstack_networking_secgroup_v2.sg-vyhonsky.id,
-    data.openstack_networking_secgroup_v2.sg-AgileAcademyTelIT-default.id,
-  ]
-  admin_state_up = "true"
-  fixed_ip {
-    subnet_id  = "45463fd3-7491-4dcc-9040-b5ce6602da09"
-    ip_address = "10.14.253.32"
+variable "plans" {
+  type = map
+  default = {
+    "5USD"  = "1xCPU-1GB"
+    "10USD" = "1xCPU-2GB"
+    "20USD" = "2xCPU-4GB"
   }
 }
 
-resource "openstack_compute_instance_v2" "vyhonsky-vm" {
-  name       = "vyhonsky-vm"
-  image_name = "Standard_Ubuntu_22.04_latest"
-  #image_name  =    "Enterprise_RedHat_9_latest"
-  flavor_name = "s3.medium.2"
-  key_pair    = data.openstack_compute_keypair_v2.vyhonsky-keypair.name
-  user_data   = file("mount_VM.sh")
-
-  network {
-    port = openstack_networking_port_v2.primary_port.id
+variable "storage_sizes" {
+  type = map
+  default = {
+    "1xCPU-1GB" = "25"
+    "1xCPU-2GB" = "50"
+    "2xCPU-4GB" = "80"
+  }
+}
+variable "templates" {
+  type = map
+  default = {
+    "ubuntu18" = "01000000-0000-4000-8000-000030080200"
+    "centos7"  = "01000000-0000-4000-8000-000050010300"
+    "debian9"  = "01000000-0000-4000-8000-000020040100"
   }
 }
 
-resource "openstack_compute_volume_attach_v2" "data0-vyhonsky" {
-  instance_id = openstack_compute_instance_v2.vyhonsky-vm.id
-  volume_id   = openstack_blockstorage_volume_v3.data0-vyhonsky.id
+variable "set_password" {
+  type = bool
+  default = false
 }
 
-mount_VM.sh
+variable "users" {
+  type = list
+  default = ["root", "user1", "user2"]
+}
 
-#!/bin/bash
-#
-mkfs -t ext4 /dev/vdb
-mkdir -p /mnt/data
-mount /dev/vdb /mnt/data
-echo /dev/vdb /mnt/data ext4 defaults,nofail 0 2 >> /etc/fstab
+variable "plan" {
+  type = string
+  default = "10USD"
+}
+
+variable "template" {
+  type = string
+  default = "ubuntu18"
+}
+
+potom mozem do json file urcit hodnoty 
+
+terraform.tfvars.json - files named exactly terraform.tfvars or terraform.tfvars.json.
+Any files with names ending in .auto.tfvars or .auto.tfvars.json. are automaticly loaded
+
+"image_name": "VAULE"
+"private_key_pat": "new value"
+
+input variables - my vkladame hodnotuT
+
+potom ich mozem pouzivat var.image_name v kode.
 
 
-resize2fs /dev/vdb
+mozem hodnotu urcit aj terraform apply -var set_password="true" but again it have to be set first in block variable or variables.tf
 
+```
+Using environmental variables
+You can also set sensitive variables in your environment variables with the TF_VAR_ prefix avoiding the need to save them in a file. For example, set your password in your local environmental variables.
+
+export TF_VAR_PASSWORD="password"
+
+You’ll also need to declare the password variable in your variables.tf file.
+
+variable PASSWORD { default = "" }
+
+The password variable is then usable in the Terraform resources.
+
+  provisioner "remote-exec" {
+    inline = [
+      "useradd ${var.users[0]}",
+      "echo '${var.users[0]}:${var.PASSWORD}' | chpasswd"
+    ]
+  }
+
+When deployed, the remote execution provisioner will create a new user according to the users variable with the PASSWORD as set in the environmental variable.
+
+
+```
+
+variables we can use between different terraform folders
+
+Local Values
+Hands-on: Try the Simplify Terraform Configuration with Locals tutorial.
+
+A local value assigns a name to an expression, so you can use the name multiple times within a module instead of repeating the expression.
+
+If you're familiar with traditional programming languages, it can be useful to compare Terraform modules to function definitions:
+
+Input variables are like function arguments.
+Output values are like function return values.
+Local values are like a function's temporary local variables.
+Note: For brevity, local values are often referred to as just "locals" when the meaning is clear from context.
+
+Declaring a Local Value
+A set of related local values can be declared together in a single locals block:
+
+locals {
+  service_name = "forum"
+  owner        = "Community Team"
+}
+
+The expressions in local values are not limited to literal constants; they can also reference other values in the module in order to transform or combine them, including variables, resource attributes, or other local values:
+
+locals {
+  # Ids for multiple sets of EC2 instances, merged together
+  instance_ids = concat(aws_instance.blue.*.id, aws_instance.green.*.id)
+}
+
+locals {
+  # Common tags to be assigned to all resources
+  common_tags = {
+    Service = local.service_name
+    Owner   = local.owner
+  }
+}
+
+Ephemeral values
+Note: Ephemeral local values are available in Terraform v1.10 and later.
+
+Local values implicitly become ephemeral if you reference an ephemeral value when you assign that local a value. For example, you can create a local that references an ephemeral service_token.
+
+variable "service_name" {
+  type    = string
+  default = "forum"
+}
+
+variable "environment" {
+  type    = string
+  default = "dev"
+}
+
+variable "service_token" {
+  type      = string
+  ephemeral = true
+}
+
+locals {
+  service_tag   = "${var.service_name}-${var.environment}"
+  session_token = "${var.service_name}:${var.service_token}"
+}
+
+The local.session_token value is implicitly ephemeral because it relies on an ephemeral variable.
+
+Using Local Values
+Once a local value is declared, you can reference it in expressions as local.<NAME>.
+
+Note: Local values are created by a locals block (plural), but you reference them as attributes on an object named local (singular). Make sure to leave off the "s" when referencing a local value!
+
+resource "aws_instance" "example" {
+  # ...
+
+  tags = local.common_tags
+}
+
+A local value can only be accessed in expressions within the module where it was declared.
+
+When To Use Local Values
+Local values can be helpful to avoid repeating the same values or expressions multiple times in a configuration, but if overused they can also make a configuration hard to read by future maintainers by hiding the actual values used.
+
+Use local values only in moderation, in situations where a single value or result is used in many places and that value is likely to be changed in future. The ability to easily change the value in a central place is the key advantage of local values.
