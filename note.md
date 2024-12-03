@@ -93,8 +93,8 @@
 
 ## Exporting Proxy Variables (if needed)
 ```bash
-export https_proxy=http://10.14.38.3:3128
-export http_proxy=http://10.14.38.3:3128
+export https_proxy=http://00.00.00.0:0000
+export http_proxy=http://00.00.00.0:0000
 ```
 
 ## Creating a Keypair
