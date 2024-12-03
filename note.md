@@ -226,7 +226,38 @@ The `user_data` field in the openstack_compute_instance_v2 resource refers to a 
 It allows you to specify a script or set of commands that will be executed as part of the VM's startup process.
    
 ---
-   
+      
+3. Create a volume and attach it to the instance:
+   ```hcl
+   resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
+       name               = "data0-vyhonsky"
+       size               = 10
+       enable_online_resize = true
+       volume_type        = "SSD"
+   }
+
+   resource "openstack_compute_volume_attach_v2" "data0-vyhonsky" {
+       instance_id = openstack_compute_instance_v2.vyhonsky-vm.id
+       volume_id   = openstack_blockstorage_volume_v3.data0-vyhonsky.id
+   }
+   ```
+
+4. Include a shell script `mount_VM.sh` for configuring the volume:
+   ```bash
+   #!/bin/bash
+
+   mkfs -t ext4 /dev/vdb
+   mkdir -p /mnt/data
+   mount /dev/vdb /mnt/data
+   echo /dev/vdb /mnt/data ext4 defaults,nofail 0 2 >> /etc/fstab
+   ```
+After resizing volume, you have to resize mounted disk.
+   ```bash
+   resize2fs /dev/vdb
+   ```
+
+---
+
 ## How to Create Resources and Reference Them Using `data`
 
 1. Creating Security Group and Key Pair:
@@ -272,36 +303,7 @@ resource "openstack_compute_instance_v2" "vyhonsky-vm" {
 ```
 
 ---
-   
-4. Create a volume and attach it to the instance:
-   ```hcl
-   resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
-       name               = "data0-vyhonsky"
-       size               = 10
-       enable_online_resize = true
-       volume_type        = "SSD"
-   }
 
-   resource "openstack_compute_volume_attach_v2" "data0-vyhonsky" {
-       instance_id = openstack_compute_instance_v2.vyhonsky-vm.id
-       volume_id   = openstack_blockstorage_volume_v3.data0-vyhonsky.id
-   }
-   ```
-
-5. Include a shell script `mount_VM.sh` for configuring the volume:
-   ```bash
-   #!/bin/bash
-
-   mkfs -t ext4 /dev/vdb
-   mkdir -p /mnt/data
-   mount /dev/vdb /mnt/data
-   echo /dev/vdb /mnt/data ext4 defaults,nofail 0 2 >> /etc/fstab
-   ```
-After resizing volume, you have to resize mounted disk.
-   ```bash
-   resize2fs /dev/vdb
-   ```
-   
 ## Variables in Terraform
 
 `https://upcloud.com/docs/guides/terraform-variables/`
