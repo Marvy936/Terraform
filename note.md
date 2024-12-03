@@ -13,7 +13,16 @@
 6. [Creating Security Groups](#creating-security-groups)
 7. [Adding Security Group Rules](#adding-security-group-rules)
 8. [Creating and Managing an Instance](#creating-and-managing-an-instance)
-9. [Variables and Local Values](#variables-and-local-values)
+9. [Variables in Terraform](#variables-in-terraform)
+    - [Input Variables](#input-variables)
+        - [Declaring Variables](#declaring-variables)
+        - [Using Input Variables](#using-input-variables)
+    - [Output Variables](#output-variables)
+    - [Local Values](#local-values)
+        - [Declaring Local Values](#declaring-local-values)
+        - [Using Local Values](#using-local-values)
+        - [Ephemeral Local Values](#ephemeral-local-values)
+10. [Best Practices](#best-practices-for-variables-and-local-values)
 
 ## Introduction to Terraform Commands
 
@@ -216,16 +225,17 @@ After resizing volume, you have to resize mounted disk.
    resize2fs /dev/vdb
    ```
    
-## Variables and Local Values
+## Variables in Terraform
+
+Variables in Terraform enable dynamic and reusable configurations. They are declared in `variables.tf` files or directly within your Terraform manifests.
 
 ### Input Variables
 
-- Input variables allow you to define values for your configuration that can be reused and customized.
+Input variables are values that you pass into Terraform configurations.
 
 #### Declaring Variables
 
-Variables can be declared within the configuration or in a separate file like `variables.tf`:
-
+Variables must first be defined in a block or `variables.tf` file:
 ```hcl
 variable "private_key_path" {
   type    = string
@@ -236,75 +246,122 @@ variable "public_key" {
   type    = string
   default = "ssh-rsa terraform_public_key"
 }
-```
 
-You can also define more complex variables using maps or lists:
-
-```hcl
 variable "zones" {
   type = map
   default = {
     "amsterdam" = "nl-ams1"
     "london"    = "uk-lon1"
+    "frankfurt" = "de-fra1"
+    "helsinki1" = "fi-hel1"
+    "helsinki2" = "fi-hel2"
+    "chicago"   = "us-chi1"
+    "sanjose"   = "us-sjo1"
+    "singapore" = "sg-sin1"
   }
+}
+
+variable "plans" {
+  type = map
+  default = {
+    "5USD"  = "1xCPU-1GB"
+    "10USD" = "1xCPU-2GB"
+    "20USD" = "2xCPU-4GB"
+  }
+}
+
+variable "storage_sizes" {
+  type = map
+  default = {
+    "1xCPU-1GB" = "25"
+    "1xCPU-2GB" = "50"
+    "2xCPU-4GB" = "80"
+  }
+}
+
+variable "templates" {
+  type = map
+  default = {
+    "ubuntu18" = "01000000-0000-4000-8000-000030080200"
+    "centos7"  = "01000000-0000-4000-8000-000050010300"
+    "debian9"  = "01000000-0000-4000-8000-000020040100"
+  }
+}
+
+variable "set_password" {
+  type    = bool
+  default = false
 }
 
 variable "users" {
   type    = list
   default = ["root", "user1", "user2"]
 }
-```
 
-#### Providing Values for Variables
+variable "plan" {
+  type    = string
+  default = "10USD"
+}
 
-- Use `terraform.tfvars.json` or `terraform.tfvars` files to define variable values:
-
-Example `terraform.tfvars.json` file:
-```json
-{
-  "image_name": "VALUE",
-  "private_key_path": "new value"
+variable "template" {
+  type    = string
+  default = "ubuntu18"
 }
 ```
 
-You can also specify variable values during apply:
-```bash
-terraform apply -var 'set_password=true'
-```
+#### Using Input Variables
 
-#### Using Environment Variables
-
-Sensitive variables can be set as environment variables with the `TF_VAR_` prefix:
-```bash
-export TF_VAR_PASSWORD="password"
-```
-
-Ensure the variable is declared in `variables.tf`:
+Input variables can be referenced in configurations:
 ```hcl
-variable "PASSWORD" {
-  default = ""
-}
+var.image_name
 ```
+
+You can pass values through:
+- **Files (`terraform.tfvars.json`)**:
+  ```json
+  {
+    "image_name": "VALUE",
+    "private_key_path": "new value"
+  }
+  ```
+  Files named `terraform.tfvars`, `terraform.tfvars.json`, or ending with `.auto.tfvars/.auto.tfvars.json` are automatically loaded.
+
+- **Command-line Flags**:
+  ```bash
+  terraform apply -var set_password="true"
+  ```
+
+- **Environment Variables**: Use the `TF_VAR_` prefix to define variables as environment variables:
+  ```bash
+  export TF_VAR_PASSWORD="password"
+  ```
+  Ensure the variable is declared in the configuration:
+  ```hcl
+  variable "PASSWORD" {
+    default = ""
+  }
+  ```
 
 ### Output Variables
 
-- Output variables let you extract and display information from your resources.
-- Example declaration:
+Output variables allow you to extract information from Terraform's state:
 ```hcl
 output "public_ip" {
-    value = upcloud_server.server_name.network_interface[0].ip_address
+  value = upcloud_server.server_name.network_interface[0].ip_address
 }
-  ```
-To access an output variable, use:
+```
+
+To access output variables, use:
 ```bash
 terraform output {output_var_name}
 ```
 
 ### Local Values
 
-- Local values simplify configurations by defining reusable expressions.
+Local values assign names to expressions for reuse within a module.
 
 #### Declaring Local Values
+
 ```hcl
 locals {
   service_name = "forum"
@@ -317,15 +374,17 @@ locals {
 ```
 
 #### Using Local Values
+
+Local values can be referenced as `local.<name>`:
 ```hcl
 resource "aws_instance" "example" {
   tags = local.common_tags
 }
 ```
 
-#### Ephemeral Values (Terraform v1.10+)
-Ephemeral local values automatically derive their lifespan from ephemeral variables:
+#### Ephemeral Local Values (Terraform v1.10+)
 
+Ephemeral local values depend on ephemeral inputs:
 ```hcl
 variable "service_token" {
   type      = string
@@ -336,6 +395,12 @@ locals {
   session_token = "${var.service_name}:${var.service_token}"
 }
 ```
+
+## Best Practices for Variables and Local Values
+
+- Use input variables for configuration flexibility.
+- Use local values to reduce repetition but avoid overuse for readability.
+- Keep sensitive variables in environment variables or securely managed files.
 
 ### Best Practices for Variables and Locals
 - Use variables to parameterize your configuration.
