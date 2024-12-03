@@ -1,29 +1,21 @@
-variables
+Terraform Variables and Local Values
+Variables in Terraform
 
-terraform.tfvars.json
+Variables in Terraform enable dynamic and reusable configurations. They are declared in variables.tf files or directly within your Terraform manifests.
+Input Variables
 
-"image_name": "VAULE"
+Input variables are values that you pass into Terraform configurations.
+Declaring Variables
 
-output variables
-
-output "public_ip" {
-  value = upcloud_server.server_name.network_interface[0].ip_address
-}
-
-terraform output {output_var_name}
-
-input variables - my vkladame hodnotuT
-
-
-musim mat v bloku variable zadefinovnae premenne bud v jednotlivych manuifestovch alebo v samostatnom variables.tf
+Variables must first be defined in a block or variables.tf file:
 
 variable "private_key_path" {
-  type = string
+  type    = string
   default = "/home/user/.ssh/terraform_rsa"
 }
 
 variable "public_key" {
-  type = string
+  type    = string
   default = "ssh-rsa terraform_public_key"
 }
 
@@ -58,6 +50,7 @@ variable "storage_sizes" {
     "2xCPU-4GB" = "80"
   }
 }
+
 variable "templates" {
   type = map
   default = {
@@ -68,115 +61,93 @@ variable "templates" {
 }
 
 variable "set_password" {
-  type = bool
+  type    = bool
   default = false
 }
 
 variable "users" {
-  type = list
+  type    = list
   default = ["root", "user1", "user2"]
 }
 
 variable "plan" {
-  type = string
+  type    = string
   default = "10USD"
 }
 
 variable "template" {
-  type = string
+  type    = string
   default = "ubuntu18"
 }
 
-potom mozem do json file urcit hodnoty 
+Using Input Variables
 
-terraform.tfvars.json - files named exactly terraform.tfvars or terraform.tfvars.json.
-Any files with names ending in .auto.tfvars or .auto.tfvars.json. are automaticly loaded
+Input variables can be referenced in configurations:
 
-"image_name": "VAULE"
-"private_key_pat": "new value"
+var.image_name
 
-input variables - my vkladame hodnotuT
+You can pass values through:
 
-potom ich mozem pouzivat var.image_name v kode.
+    Files (terraform.tfvars.json):
 
+{
+  "image_name": "VALUE",
+  "private_key_path": "new value"
+}
 
-mozem hodnotu urcit aj terraform apply -var set_password="true" but again it have to be set first in block variable or variables.tf
+Files named terraform.tfvars, terraform.tfvars.json, or ending with .auto.tfvars/.auto.tfvars.json are automatically loaded.
 
-```
-Using environmental variables
-You can also set sensitive variables in your environment variables with the TF_VAR_ prefix avoiding the need to save them in a file. For example, set your password in your local environmental variables.
+Command-line Flags:
+
+terraform apply -var set_password="true"
+
+Environment Variables: Use the TF_VAR_ prefix to define variables as environment variables:
 
 export TF_VAR_PASSWORD="password"
 
-You’ll also need to declare the password variable in your variables.tf file.
+Ensure the variable is declared in the configuration:
 
-variable PASSWORD { default = "" }
+    variable "PASSWORD" {
+      default = ""
+    }
 
-The password variable is then usable in the Terraform resources.
+Output Variables
 
-  provisioner "remote-exec" {
-    inline = [
-      "useradd ${var.users[0]}",
-      "echo '${var.users[0]}:${var.PASSWORD}' | chpasswd"
-    ]
-  }
+Output variables allow you to extract information from Terraform's state:
 
-When deployed, the remote execution provisioner will create a new user according to the users variable with the PASSWORD as set in the environmental variable.
+output "public_ip" {
+  value = upcloud_server.server_name.network_interface[0].ip_address
+}
 
+To access output variables, use:
 
-```
-
-variables we can use between different terraform folders
+terraform output {output_var_name}
 
 Local Values
-Hands-on: Try the Simplify Terraform Configuration with Locals tutorial.
 
-A local value assigns a name to an expression, so you can use the name multiple times within a module instead of repeating the expression.
-
-If you're familiar with traditional programming languages, it can be useful to compare Terraform modules to function definitions:
-
-Input variables are like function arguments.
-Output values are like function return values.
-Local values are like a function's temporary local variables.
-Note: For brevity, local values are often referred to as just "locals" when the meaning is clear from context.
-
-Declaring a Local Value
-A set of related local values can be declared together in a single locals block:
+Local values assign names to expressions for reuse within a module.
+Declaring Local Values
 
 locals {
   service_name = "forum"
   owner        = "Community Team"
-}
-
-The expressions in local values are not limited to literal constants; they can also reference other values in the module in order to transform or combine them, including variables, resource attributes, or other local values:
-
-locals {
-  # Ids for multiple sets of EC2 instances, merged together
-  instance_ids = concat(aws_instance.blue.*.id, aws_instance.green.*.id)
-}
-
-locals {
-  # Common tags to be assigned to all resources
-  common_tags = {
+  common_tags  = {
     Service = local.service_name
     Owner   = local.owner
   }
 }
 
-Ephemeral values
-Note: Ephemeral local values are available in Terraform v1.10 and later.
+Using Local Values
 
-Local values implicitly become ephemeral if you reference an ephemeral value when you assign that local a value. For example, you can create a local that references an ephemeral service_token.
+Local values can be referenced as local.<name>:
 
-variable "service_name" {
-  type    = string
-  default = "forum"
+resource "aws_instance" "example" {
+  tags = local.common_tags
 }
 
-variable "environment" {
-  type    = string
-  default = "dev"
-}
+Ephemeral Local Values (Terraform v1.10+)
+
+Ephemeral local values depend on ephemeral inputs:
 
 variable "service_token" {
   type      = string
@@ -184,26 +155,11 @@ variable "service_token" {
 }
 
 locals {
-  service_tag   = "${var.service_name}-${var.environment}"
   session_token = "${var.service_name}:${var.service_token}"
 }
 
-The local.session_token value is implicitly ephemeral because it relies on an ephemeral variable.
+Best Practices for Variables and Local Values
 
-Using Local Values
-Once a local value is declared, you can reference it in expressions as local.<NAME>.
-
-Note: Local values are created by a locals block (plural), but you reference them as attributes on an object named local (singular). Make sure to leave off the "s" when referencing a local value!
-
-resource "aws_instance" "example" {
-  # ...
-
-  tags = local.common_tags
-}
-
-A local value can only be accessed in expressions within the module where it was declared.
-
-When To Use Local Values
-Local values can be helpful to avoid repeating the same values or expressions multiple times in a configuration, but if overused they can also make a configuration hard to read by future maintainers by hiding the actual values used.
-
-Use local values only in moderation, in situations where a single value or result is used in many places and that value is likely to be changed in future. The ability to easily change the value in a central place is the key advantage of local values.
+    Use input variables for configuration flexibility.
+    Use local values to reduce repetition but avoid overuse for readability.
+    Keep sensitive variables in environment variables or securely managed files.
