@@ -613,6 +613,32 @@ resource "null_resource" "provision" {
   }
 }
 ```
+`<<EOT` defines start of multi-line command
+`EOT` end of multi-line command
+
+There is much cleaner version to use:
+
+External Script File
+
+For complex commands, you can store the script in an external file and execute it using the file() function or directly as a script provisioner. This keeps your Terraform code clean:
+
+Save your script in a file (e.g., provision.sh):
+
+`provision.sh` create in terraform dir
+```bash
+#!/bin/bash
+until ssh -o StrictHostKeyChecking=no -i ~/.ssh/mvyhonsk ubuntu@${local.ip_address}; do sleep 2; done
+echo -e "[server]\n${openstack_compute_instance_v2.vyhonsky-vm.network[0].fixed_ip_v4} ansible_ssh_private_key_file=~/.ssh/mvyhonsk ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_ssh_user=ubuntu" > inventory-test
+ansible-playbook -i inventory-test install-httpd-ubuntu.yml
+```
+
+Update the Terraform resource:
+
+provisioner "local-exec" {
+  command = "bash provision.sh"
+}
+
+This is the cleanest and most maintainable option for long or complex commands.
 
 #### Explanation of the Command
 
