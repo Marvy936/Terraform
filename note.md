@@ -613,12 +613,11 @@ resource "null_resource" "provision" {
   }
 }
 ```
-`<<EOT` defines start of multi-line command
-`EOT` end of multi-line command
+`<<EOT` defines start of multi-line command, `EOT` end of multi-line command
 
 There is much cleaner version to use:
 
-External Script File
+#### External Script File
 
 For complex commands, you can store the script in an external file and execute it using the file() function or directly as a script provisioner. This keeps your Terraform code clean:
 
