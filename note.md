@@ -13,7 +13,8 @@
 6. [Creating Security Groups](#creating-security-groups)
 7. [Adding Security Group Rules](#adding-security-group-rules)
 8. [Creating and Managing an Instance](#creating-and-managing-an-instance)
-9. [Variables in Terraform](#variables-in-terraform)
+9. [How to Create Resources and Reference Them Using `data`](#how-to-create-resources-and-reference-them-using-data)
+10. [Variables in Terraform](#variables-in-terraform)
     - [Input Variables](#input-variables)
         - [Declaring Variables](#declaring-variables)
         - [Using Input Variables](#using-input-variables)
@@ -23,17 +24,17 @@
         - [Using Local Values](#using-local-values)
         - [Ephemeral Local Values](#ephemeral-local-values)
         - [Best Practices](#best-practices-for-variables-and-local-values)
-10. [Backend](#backend)
-11. [Null Resource](#null-resource)
+11. [Backend](#backend)
+12. [Null Resource](#null-resource)
      - [Triggers Example](#triggers-example)
-12. [Provisioners](#provisioners)
+13. [Provisioners](#provisioners)
      - [Remote Exec Provisioner](#remote-exec-provisioner)
      - [Local Exec Provisioner](#local-exec-provisioner)
-13. [Useful Terraform Functions](#useful-terraform-functions)
+14. [Useful Terraform Functions](#useful-terraform-functions)
      - [Element Function](#element-function)
      - [Length Function](#length-function)
-14. [Meta-Argument: Count](#meta-argument-count)
-15. [Terraform Code Explanation: Multiple Instances with `count`](#terraform-code-explanation-multiple-instances-with-count)
+15. [Meta-Argument: Count](#meta-argument-count)
+16. [Terraform Code Explanation: Multiple Instances with `count`](#terraform-code-explanation-multiple-instances-with-count)
     - [Key Concept: `count`](#key-concept-count)
     - [Resource-by-Resource Breakdown](#resource-by-resource-breakdown)
          - [1. Security Groups (`data` blocks)](#1-security-groups-data-blocks)
@@ -213,7 +214,7 @@ export http_proxy=http://00.00.00.0:0000
        image_name    = "Standard_Ubuntu_22.04_latest"
        flavor_name   = "s3.medium.2"
        key_pair      = data.openstack_compute_keypair_v2.vyhonsky-keypair.name
-       user_data     = file("mount_VM.sh")
+       user_data     = file("path/to/script")
 
        network {
            port = openstack_networking_port_v2.primary_port.id
@@ -221,11 +222,57 @@ export http_proxy=http://00.00.00.0:0000
    }
    ```
    
-
-    The `user_data` field in the openstack_compute_instance_v2 resource refers to a mechanism used to initialize a virtual machine (VM) during its first boot. 
-    It allows you to specify a script or set of commands that will be executed as part of the VM's startup process.
+---
    
+## How to Create Resources and Reference Them Using `data`
 
+1. Creating Security Group and Key Pair:
+
+To later fetch a security group with a data block, you first create it as a resource.
+
+```hcl
+resource "openstack_networking_secgroup_v2" "sg-vyhonsky" {
+    name               = "sg-vyhonsky"
+    description        = "Security group for Vyhonsky"
+    delete_default_rules = true
+}
+
+resource "openstack_compute_keypair_v2" "vyhonsky-keypair" {
+    name       = "vyhonsky-keypair"
+    public_key = file("~/.ssh/id_rsa.pub")
+}   
+```
+
+2. Referencing and Using Them in Other Resources:
+
+Once resources like a security group or key pair are created, you can use data blocks to fetch their attributes dynamically. This is useful when the exact resource may be used across multiple configurations or modules.
+
+```hcl
+data "openstack_networking_secgroup_v2" "sg-vyhonsky" {
+    name = openstack_networking_secgroup_v2.sg-vyhonsky.name
+}
+
+data "openstack_compute_keypair_v2" "vyhonsky-keypair" {
+    name = openstack_compute_keypair_v2.vyhonsky-keypair.name
+}
+
+resource "openstack_compute_instance_v2" "vyhonsky-vm" {
+    name       = "vyhonsky-vm"
+    image_name = "Standard_Ubuntu_22.04_latest"
+    flavor_name = "s3.medium.2"
+    key_pair   = data.openstack_compute_keypair_v2.vyhonsky-keypair.name
+
+    network {
+        port = openstack_networking_port_v2.primary_port.id
+    }
+}
+```
+
+The `user_data` field in the openstack_compute_instance_v2 resource refers to a mechanism used to initialize a virtual machine (VM) during its first boot. 
+It allows you to specify a script or set of commands that will be executed as part of the VM's startup process.
+
+---
+   
 4. Create a volume and attach it to the instance:
    ```hcl
    resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
