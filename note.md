@@ -401,7 +401,3 @@ locals {
 - Use input variables for configuration flexibility.
 - Use local values to reduce repetition but avoid overuse for readability.
 - Keep sensitive variables in environment variables or securely managed files.
-
-### Best Practices for Variables and Locals
-- Use variables to parameterize your configuration.
-- Use local values to avoid repetition, but keep configurations readable.
