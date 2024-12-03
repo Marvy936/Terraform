@@ -221,6 +221,9 @@ export http_proxy=http://00.00.00.0:0000
        }
    }
    ```
+
+The `user_data` field in the openstack_compute_instance_v2 resource refers to a mechanism used to initialize a virtual machine (VM) during its first boot. 
+It allows you to specify a script or set of commands that will be executed as part of the VM's startup process.
    
 ---
    
@@ -267,9 +270,6 @@ resource "openstack_compute_instance_v2" "vyhonsky-vm" {
     }
 }
 ```
-
-The `user_data` field in the openstack_compute_instance_v2 resource refers to a mechanism used to initialize a virtual machine (VM) during its first boot. 
-It allows you to specify a script or set of commands that will be executed as part of the VM's startup process.
 
 ---
    
