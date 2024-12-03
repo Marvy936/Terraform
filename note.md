@@ -22,7 +22,8 @@
         - [Declaring Local Values](#declaring-local-values)
         - [Using Local Values](#using-local-values)
         - [Ephemeral Local Values](#ephemeral-local-values)
-10. [Best Practices](#best-practices-for-variables-and-local-values)
+        - [Best Practices](#best-practices-for-variables-and-local-values)
+10. [Backend](#backend)
 
 ## Introduction to Terraform Commands
 
@@ -402,3 +403,36 @@ locals {
 - Use input variables for configuration flexibility.
 - Use local values to reduce repetition but avoid overuse for readability.
 - Keep sensitive variables in environment variables or securely managed files.
+
+## Backend
+
+For generating uniqe ID use:
+```bash
+uuidgen
+```
+Create a new file, such as `backend.tf` or `terraform.tf` or whatever you want ending with `.tf` and add the following content to configure the backend: (this is configuration for OTC)
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket                  = "obs-1000035578-terraform-states"
+    key                     = "vyhonsky-e03f8044-f45f-45c5-abf3-6fabe2e6194e/terraform.tfstate"
+    region                  = "eu-de"
+    endpoint                = "obs.eu-de.otc.t-systems.com"
+    encrypt                 = false
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    skip_metadata_api_check     = true
+  }
+}
+```
+
+`key = "vyhonsky-e03f8044-f45f-45c5-abf3-6fabe2e6194e/terraform.tfstate"` -> this is the path where you state will be stored on OTC bucket.
+
+Add your credentials to `.bashrc` and `source ~/.bashrc` for easy reuse:
+
+```bash
+export AWS_SECRET_ACCESS_KEY="your_secret_access_key"
+export AWS_ACCESS_KEY_ID="your_access_key_id"
+```
+Now just run `terraform init` command.
