@@ -290,15 +290,15 @@ variable "PASSWORD" {
 
 - Output variables let you extract and display information from your resources.
 - Example declaration:
-  ```hcl
-  output "public_ip" {
+```hcl
+output "public_ip" {
     value = upcloud_server.server_name.network_interface[0].ip_address
-  }
+}
   ```
-- To access an output variable, use:
-  ```bash
-  terraform output {output_var_name}
-  ```
+To access an output variable, use:
+```bash
+terraform output {output_var_name}
+```
 
 ### Local Values
 
