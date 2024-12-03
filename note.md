@@ -33,6 +33,20 @@
      - [Element Function](#element-function)
      - [Length Function](#length-function)
 14. [Meta-Argument: Count](#meta-argument-count)
+15. [Multiple Instances](#multiple-instances)
+    - [Key Concept: `count`](#key-concept-count)
+    - [Resource-by-Resource Breakdown](#resource-by-resource-breakdown)
+         - [1. Security Groups (`data` blocks)](#1-security-groups-data-blocks)
+         - [2. Keypair (`data` block)](#2-keypair-data-block)
+         - [3. Block Storage Volume](#3-block-storage-volume)
+         - [4. Networking Port](#4-networking-port)
+         - [5. Compute Instances](#5-compute-instances)
+         - [6. Volume Attachment](#6-volume-attachment)
+         - [7. Provisioning (`null_resource`)](#7-provisioning-null_resource)
+    - [Dynamic Provisioning with `count`](#dynamic-provisioning-with-count)
+        - [1. IP List (`local.ip_address`)](#1-ip-list-localip_address)
+        - [2. Dynamic Resource Naming](#2-dynamic-resource-naming)
+        - [3. Resource Dependencies](#3-resource-dependencies)
 
 ## Introduction to Terraform Commands
 
@@ -647,3 +661,153 @@ resource "openstack_networking_secgroup_rule_v2" "default_to_apache" {
 - [Local Exec Provisioner](https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec)
 - [Terraform Functions](https://developer.hashicorp.com/terraform/language/functions)
 - [Meta-Argument Count](https://developer.hashicorp.com/terraform/language/meta-arguments/count)
+
+---
+
+# Terraform Code Explanation: Multiple Instances with `count`
+
+This Terraform configuration dynamically provisions multiple OpenStack resources based on the number of IP addresses defined in the `local.ip_address` variable. Here's a detailed breakdown of the code:
+
+---
+
+## Key Concept: `count`
+- The `count` meta-argument in Terraform creates multiple instances of a resource dynamically.
+- The number of instances is determined by `count`, which in this case is set to `length(local.ip_address)`—one instance per IP in the `local.ip_address` list.
+
+---
+
+## Resource-by-Resource Breakdown
+
+### 1. Security Groups (`data` blocks)
+```hcl
+data "openstack_networking_secgroup_v2" "sg-AgileAcademyTelIT-default" {
+  name = "sg-AgileAcademyTelIT-default"
+}
+
+data "openstack_networking_secgroup_v2" "sg-vyhonsky" {
+  name = "sg-vyhonsky"
+}
+```
+- These `data` blocks retrieve details about existing security groups in OpenStack.
+- They are used in the `security_group_ids` parameter of the networking port to associate security groups with the port.
+
+---
+
+### 2. Keypair (`data` block)
+```hcl
+data "openstack_compute_keypair_v2" "vyhonsky-keypair" {
+  name = "vyhonsky-keypair"
+}
+```
+- Retrieves the details of an existing key pair (`vyhonsky-keypair`) in OpenStack.
+- The key pair is used to configure SSH access for the compute instances.
+
+---
+
+### 3. Block Storage Volume
+```hcl
+resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
+  count       = length(local.ip_address)
+  name        = "data0-vyhonsky"
+  size        = 20
+  enable_online_resize = true
+  volume_type = "SSD"
+}
+```
+- Creates one block storage volume per IP address.
+- `count.index` can be used to make each name unique, e.g., `data0-vyhonsky-%02d`.
+
+---
+
+### 4. Networking Port
+```hcl
+resource "openstack_networking_port_v2" "primary_port" {
+  count       = length(local.ip_address)
+  network_id  = local.network_id
+  name        = format("port-%02d", count.index + 1)
+  security_group_ids = [
+    data.openstack_networking_secgroup_v2.sg-vyhonsky.id,
+    data.openstack_networking_secgroup_v2.sg-AgileAcademyTelIT-default.id,
+  ]
+  admin_state_up = "true"
+  fixed_ip {
+    subnet_id  = local.subnet_id
+    ip_address = local.ip_address[count.index]
+  }
+}
+```
+- Creates a networking port for each IP address.
+- Assigns a specific IP from the `local.ip_address` list to the port.
+
+---
+
+### 5. Compute Instances
+```hcl
+resource "openstack_compute_instance_v2" "vyhonsky-vm" {
+  count       = length(local.ip_address)
+  name        = format("vyhonsky-vm-%02d", count.index + 1)
+  image_name  = "Standard_Ubuntu_22.04_latest"
+  flavor_name = "s3.medium.2"
+  key_pair    = data.openstack_compute_keypair_v2.vyhonsky-keypair.name
+
+  network {
+    port = openstack_networking_port_v2.primary_port[count.index].id
+  }
+}
+```
+- Provisions a compute instance for each IP address.
+- Dynamically names each instance using `count.index`.
+
+---
+
+### 6. Volume Attachment
+```hcl
+resource "openstack_compute_volume_attach_v2" "data0-vyhonsky" {
+  count       = length(local.ip_address)
+  instance_id = openstack_compute_instance_v2.vyhonsky-vm[count.index].id
+  volume_id   = openstack_blockstorage_volume_v3.data0-vyhonsky[count.index].id
+}
+```
+- Attaches a block storage volume to each compute instance.
+- The correct volume is matched with the correct instance using `count.index`.
+
+---
+
+### 7. Provisioning (`null_resource`)
+```hcl
+resource "null_resource" "provision" {
+  count       = length(local.ip_address)
+  triggers = {
+    build_number = timestamp()
+  }
+  provisioner "local-exec" {
+    command = "until ssh -o StrictHostKeyChecking=no -i ~/.ssh/mvyhonsk ubuntu@${openstack_compute_instance_v2.vyhonsky-vm[count.index].network[0].fixed_ip_v4}; do sleep 2;done && echo -e "[server]\n${openstack_compute_instance_v2.vyhonsky-vm[count.index].network[0].fixed_ip_v4} ansible_ssh_private_key_file=~/.ssh/mvyhonsk ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_ssh_user=ubuntu" > inventory-test-${openstack_compute_instance_v2.vyhonsky-vm[count.index].name} &&  ansible-playbook -i inventory-test-${openstack_compute_instance_v2.vyhonsky-vm[count.index].name} install-httpd-ubuntu.yml"
+  }
+}
+```
+- Provisions each instance using a local command.
+- SSH is used to configure the instance, and an Ansible playbook is executed for additional setup.
+
+---
+
+## Dynamic Provisioning with `count`
+### 1. IP List (`local.ip_address`)
+- Controls how many instances and resources are created. Each IP corresponds to a full set of resources (port, volume, compute instance, etc.).
+- Example:
+  ```hcl
+  locals {
+    ip_address = ["192.168.1.101", "192.168.1.102"]
+  }
+  ```
+
+### 2. Dynamic Resource Naming
+- Resources are uniquely named using `count.index`, ensuring no conflicts.
+- Example:
+  ```hcl
+  format("vyhonsky-vm-%02d", count.index + 1)
+  ```
+
+### 3. Resource Dependencies
+- Resources are linked via `count.index`, ensuring each resource (e.g., port, volume) is associated with the correct instance.
+
+This design allows you to scale up or down by modifying the `local.ip_address` list and running `terraform apply`. Each IP corresponds to one full stack of resources.
