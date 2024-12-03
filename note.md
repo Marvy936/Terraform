@@ -326,7 +326,7 @@ You can pass values through:
     "private_key_path": "VALUE"
   }
   ```
-  Files named `terraform.tfvars`, `terraform.tfvars.json`, or ending with `.auto.tfvars/.auto.tfvars.json` are automatically loaded.
+  Files named `terraform.tfvars`, `terraform.tfvars.json`, or ending with `.auto.tfvars / .auto.tfvars.json` are automatically loaded.
 
 - **Command-line Flags**:
   ```bash
