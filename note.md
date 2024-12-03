@@ -52,6 +52,7 @@
 
 ## Useful Links
 
+- [OpenStack Provider Documentation](https://registry.terraform.io/providers/terraform-provider-openstack/openstack/latest/docs)
 - [OpenTelekomCloud Provider Documentation](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/latest/docs)
 - [Terraform Release Downloads](https://releases.hashicorp.com/)
 
