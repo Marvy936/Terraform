@@ -1,122 +1,143 @@
-https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource
+data "openstack_networking_secgroup_v2" "sg-AgileAcademyTelIT-default" {
+  name = "sg-AgileAcademyTelIT-default"
+}
 
-resource "null_resource" "provision" {
-  triggers = {
-    build_number = timestamp()
-  }
+data "openstack_networking_secgroup_v2" "sg-vyhonsky" {
+  name = "sg-vyhonsky"
+}
 
-https://developer.hashicorp.com/terraform/language/resources/provisioners/remote-exec
+data "openstack_compute_keypair_v2" "vyhonsky-keypair" {
+  name = "vyhonsky-keypair"
+}
 
+resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
+  count       = length(local.ip_address)
+  name                 = "data0-vyhonsky"
+  size                 = 20
+  enable_online_resize = true
+  volume_type          = "SSD"
+}
 
-provisioner and remote exec
-
-resource "null_resource" "provision" {
-  triggers = {
-    build_number = timestamp()
-  }
-
-  connection {
-    user        = "ubuntu"
-    private_key = file("/home/mvyhonsk/.ssh/mvyhonsk")
-    host        = openstack_compute_instance_v2.vyhonsky-vm.network.0.fixed_ip_v4
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "echo Hello World!",
-      "date",
-      "ls -la",
-    ]
+resource "openstack_networking_port_v2" "primary_port" {
+  count       = length(local.ip_address)
+  name       = format("port-%02d", count.index + 1)
+  security_group_ids = [
+    data.openstack_networking_secgroup_v2.sg-vyhonsky.id,
+    data.openstack_networking_secgroup_v2.sg-AgileAcademyTelIT-default.id,
+  ]
+  admin_state_up = "true"
+  fixed_ip {
+    subnet_id  = local.subnet_id
+    ip_address = local.ip_address[count.index]
   }
 }
 
+resource "openstack_compute_instance_v2" "vyhonsky-vm" {
+  count       = length(local.ip_address)
+  name       = format("vyhonsky-vm-%02d", count.index + 1)
+  image_name = "Standard_Ubuntu_22.04_latest"
+  #image_name  =    "Enterprise_RedHat_9_latest"
+  flavor_name = "s3.medium.2"
+  key_pair    = data.openstack_compute_keypair_v2.vyhonsky-keypair.name
+  #user_data   = file("mount_VM.sh")
 
-local exec
+  network {
+    port = openstack_networking_port_v2.primary_port[count.index].id
+  }
+}
 
-https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec
-
-
-install-httpd-ubuntu.yml
-----------------------
-- hosts: server
-  remote_user: ubuntu
-  become: true
-  tasks:
-  - name: Configure proxy
-    blockinfile:
-      path: /etc/environment
-      block: |
-        http_proxy="http://10.14.38.3:3128"
-        https_proxy="http://10.14.38.3:3128"
-    ignore_errors: true
-  - name: Install Apache2 Webserver
-    apt: name=apache2 state=latest
-  - name: Enable Apache on system reboot
-    service: name=apache2 enabled=yes
-    notify: restart apache
-  - name: Update apt cache
-    apt:
-      update_cache: yes
-  - name: Install links package
-    apt:
-      name: links
-      state: present
-  - name: Verify links installation
-    command: links -version
-    register: links_version
-    failed_when: false
-    changed_when: false
-  - name: Show links version installed
-    debug:
-      msg: "Links version installed: {{ links_version.stdout }}"
-  handlers:
-  - name: restart apache
-    service: name=apache2 state=restarted
-
-
+resource "openstack_compute_volume_attach_v2" "data0-vyhonsky" {
+  count       = length(local.ip_address)
+  instance_id = openstack_compute_instance_v2.vyhonsky-vm.id
+  volume_id   = openstack_blockstorage_volume_v3.data0-vyhonsky.id
+}
 
 resource "null_resource" "provision" {
+  count       = length(local.ip_address)
   triggers = {
     build_number = timestamp()
   }
   provisioner "local-exec" {
-    command = "until ssh -o StrictHostKeyChecking=no -i ~/.ssh/mvyhonsk ubuntu@${local.ip_address}; do sleep 2;done && echo -e \"[server]\n${openstack_compute_instance_v2.vyhonsky-vm.network[0].fixed_ip_v4} ansible_ssh_private_key_file=~/.ssh/mvyhonsk ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_ssh_user=ubuntu\" > inventory-test &&  ansible-playbook -i inventory-test install-httpd-ubuntu.yml"
+    command = "until ssh -o StrictHostKeyChecking=no -i ~/.ssh/mvyhonsk ubuntu@${openstack_compute_instance_v2.vyhonsky-vm[count.index].network[0].fixed_ip_v4}; do sleep 2;done && echo -e \"[server]\n${openstack_compute_instance_v2.vyhonsky-vm[count.index].network[0].fixed_ip_v4} ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_ssh_user=ubuntu\" > inventory-test-${openstack_compute_instance_v2.vyhonsky-vm[count.index].name} &&  ansible-playbook -i inventory-test-${openstack_compute_instance_v2.vyhonsky-vm[count.index].name} install-httpd-ubuntu.yml"
   }
 }
 
 
-useful functions to manipulate data: https://developer.hashicorp.com/terraform/language/functions daj priklad na element co pouzijeme a lenght
 
-meta argument count
-https://developer.hashicorp.com/terraform/language/meta-arguments/count
 
-locals {
-  default_to_apache = [80, 443, 8080]
+
+TEST
+
+
+
+│ Error: Missing required argument
+│
+│   on instance.tf line 21, in resource "openstack_networking_port_v2" "primary_port":
+│   21: resource "openstack_networking_port_v2" "primary_port" {
+│
+│ The argument "network_id" is required, but no definition was found.
+╵
+[mvyhonsk@bastion2 02-multiple-instances]$ vim instance.tf
+data "openstack_networking_secgroup_v2" "sg-AgileAcademyTelIT-default" {
+  name = "sg-AgileAcademyTelIT-default"
 }
 
-resource "openstack_networking_secgroup_rule_v2" "default_to_apache" {
-  count             = length(local.default_to_apache)
-  direction         = "ingress"
-  ethertype         = "IPv4"
-  protocol          = "tcp"
-  port_range_min    = element(local.default_to_apache, count.index)
-  port_range_max    = element(local.default_to_apache, count.index)
-  remote_ip_prefix  = "10.0.0.0/8"
-  security_group_id = openstack_networking_secgroup_v2.sg-vyhonsky.id
+data "openstack_networking_secgroup_v2" "sg-vyhonsky" {
+  name = "sg-vyhonsky"
 }
 
-resource "openstack_networking_secgroup_rule_v2" "healthcheck_http_apache" {
-  count             = length(local.default_to_apache)
-  direction         = "ingress"
-  ethertype         = "IPv4"
-  protocol          = "tcp"
-  port_range_min    = element(local.default_to_apache, count.index)
-  port_range_max    = element(local.default_to_apache, count.index)
-  remote_ip_prefix  = "100.125.0.0/16"
-  security_group_id = openstack_networking_secgroup_v2.sg-vyhonsky.id
+data "openstack_compute_keypair_v2" "vyhonsky-keypair" {
+  name = "vyhonsky-keypair"
 }
 
+resource "openstack_blockstorage_volume_v3" "data0-vyhonsky" {
+  count       = length(local.ip_address)
+  name                 = "data0-vyhonsky"
+  size                 = 20
+  enable_online_resize = true
+  volume_type          = "SSD"
+}
 
+resource "openstack_networking_port_v2" "primary_port" {
+  count       = length(local.ip_address)
+  name       = format("port-%02d", count.index + 1)
+  security_group_ids = [
+    data.openstack_networking_secgroup_v2.sg-vyhonsky.id,
+    data.openstack_networking_secgroup_v2.sg-AgileAcademyTelIT-default.id,
+  ]
+  admin_state_up = "true"
+  fixed_ip {
+    subnet_id  = local.subnet_id
+    ip_address = local.ip_address[count.index]
+  }
+}
 
+resource "openstack_compute_instance_v2" "vyhonsky-vm" {
+  count       = length(local.ip_address)
+  name       = format("vyhonsky-vm-%02d", count.index + 1)
+  image_name = "Standard_Ubuntu_22.04_latest"
+  #image_name  =    "Enterprise_RedHat_9_latest"
+  flavor_name = "s3.medium.2"
+  key_pair    = data.openstack_compute_keypair_v2.vyhonsky-keypair.name
+  #user_data   = file("mount_VM.sh")
 
+  network {
+    port = openstack_networking_port_v2.primary_port[count.index].id
+  }
+}
 
+resource "openstack_compute_volume_attach_v2" "data0-vyhonsky" {
+  count       = length(local.ip_address)
+  instance_id = openstack_compute_instance_v2.vyhonsky-vm.id
+  volume_id   = openstack_blockstorage_volume_v3.data0-vyhonsky.id
+}
+
+resource "null_resource" "provision" {
+  count       = length(local.ip_address)
+  triggers = {
+    build_number = timestamp()
+  }
+  provisioner "local-exec" {
+    command = "until ssh -o StrictHostKeyChecking=no -i ~/.ssh/mvyhonsk ubuntu@${openstack_compute_instance_v2.vyhonsky-vm[count.index].network[0].fixed_ip_v4}; do sleep 2;done && echo -e \"[server]\n${openstack_compute_instance_v2.vyhonsky-vm[count.index].network[0].fixed_ip_v4} ansible_ssh_private_key_file=~/.ssh/id_rsa ansible_ssh_common_args='-o StrictHostKeyChecking=no' ansible_ssh_user=ubuntu\" > inventory-test-${openstack_compute_instance_v2.vyhonsky-vm[count.index].name} &&  ansible-playbook -i inventory-test-${openstack_compute_instance_v2.vyhonsky-vm[count.index].name} install-httpd-ubuntu.yml"
+  }
+}
