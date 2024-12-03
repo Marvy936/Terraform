@@ -320,8 +320,8 @@ You can pass values through:
 - **Files (`terraform.tfvars.json`)**:
   ```json
   {
-    "image_name": "VALUE",
-    "private_key_path": "new value"
+    "private_key_path": "VALUE",
+    "private_key_path": "VALUE"
   }
   ```
   Files named `terraform.tfvars`, `terraform.tfvars.json`, or ending with `.auto.tfvars/.auto.tfvars.json` are automatically loaded.
