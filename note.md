@@ -633,9 +633,11 @@ ansible-playbook -i inventory-test install-httpd-ubuntu.yml
 
 Update the Terraform resource:
 
+```hcl
 provisioner "local-exec" {
   command = "bash provision.sh"
 }
+```
 
 This is the cleanest and most maintainable option for long or complex commands.
 
