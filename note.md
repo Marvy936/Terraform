@@ -268,9 +268,9 @@ Example `terraform.tfvars.json` file:
 ```
 
 - You can also specify variable values during apply:
-  ```bash
-  terraform apply -var 'set_password=true'
-  ```
+- ```bash
+terraform apply -var 'set_password=true'
+```
 
 #### Using Environment Variables
 
