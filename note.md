@@ -33,7 +33,7 @@
      - [Element Function](#element-function)
      - [Length Function](#length-function)
 14. [Meta-Argument: Count](#meta-argument-count)
-15. [Multiple Instances](#Terraform-Code-Explanation:-Multiple-Instances-with-count)
+15. [Multiple Instances](#Terraform-Code-Explanation:-Multiple-Instances-with-`count`)
     - [Key Concept: `count`](#key-concept-count)
     - [Resource-by-Resource Breakdown](#resource-by-resource-breakdown)
          - [1. Security Groups (`data` blocks)](#1-security-groups-data-blocks)
